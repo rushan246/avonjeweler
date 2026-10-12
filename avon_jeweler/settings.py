@@ -8,7 +8,10 @@ from django.core.exceptions import ImproperlyConfigured
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / ".env")
 
-IS_VERCEL = os.getenv("VERCEL", "").lower() in {"1", "true", "yes"}
+IS_VERCEL = (
+    os.getenv("VERCEL", "").lower() in {"1", "true", "yes"}
+    or any(os.getenv(name, "").strip() for name in ("VERCEL_URL", "VERCEL_ENV", "VERCEL_PROJECT_PRODUCTION_URL"))
+)
 DEBUG = not IS_VERCEL and os.getenv("DJANGO_DEBUG", "False").lower() in {"1", "true", "yes"}
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "")
 if not SECRET_KEY:
