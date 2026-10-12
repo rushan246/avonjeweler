@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+from urllib.parse import parse_qs, unquote, urlsplit
 
 from dotenv import load_dotenv
 from django.core.exceptions import ImproperlyConfigured
@@ -7,7 +8,8 @@ from django.core.exceptions import ImproperlyConfigured
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / ".env")
 
-DEBUG = os.getenv("DJANGO_DEBUG", "False").lower() in {"1", "true", "yes"}
+IS_VERCEL = os.getenv("VERCEL", "").lower() in {"1", "true", "yes"}
+DEBUG = not IS_VERCEL and os.getenv("DJANGO_DEBUG", "False").lower() in {"1", "true", "yes"}
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "")
 if not SECRET_KEY:
     if not DEBUG:
@@ -15,10 +17,42 @@ if not SECRET_KEY:
     SECRET_KEY = "insecure-development-only-key"
 if not DEBUG and SECRET_KEY == "replace-with-a-long-random-secret":
     raise ImproperlyConfigured("Replace the example DJANGO_SECRET_KEY before deploying AVON JEWELER.")
-if not DEBUG and not os.getenv("DB_NAME"):
-    raise ImproperlyConfigured("Configure DB_NAME and MySQL credentials before running AVON JEWELER with DEBUG disabled.")
-ALLOWED_HOSTS = [host.strip() for host in os.getenv("DJANGO_ALLOWED_HOSTS", "127.0.0.1,localhost").split(",") if host.strip()]
-SECURE_SSL_REDIRECT = os.getenv("DJANGO_SECURE_SSL_REDIRECT", "False").lower() in {"1", "true", "yes"}
+
+
+def _host_from_environment(value):
+    host = urlsplit(f"//{value.strip()}").hostname
+    return host.lower() if host else ""
+
+
+ALLOWED_HOSTS = [
+    _host_from_environment(host)
+    for host in os.getenv("DJANGO_ALLOWED_HOSTS", "127.0.0.1,localhost").split(",")
+    if _host_from_environment(host)
+]
+if IS_VERCEL:
+    for deployment_host in (
+        "jeweler-web-site.vercel.app",
+        os.getenv("VERCEL_URL", ""),
+        os.getenv("VERCEL_BRANCH_URL", ""),
+        os.getenv("VERCEL_PROJECT_PRODUCTION_URL", ""),
+    ):
+        host = _host_from_environment(deployment_host)
+        if host and host not in ALLOWED_HOSTS:
+            ALLOWED_HOSTS.append(host)
+
+CSRF_TRUSTED_ORIGINS = [
+    origin.strip().rstrip("/")
+    for origin in os.getenv("DJANGO_CSRF_TRUSTED_ORIGINS", "").split(",")
+    if origin.strip()
+]
+if IS_VERCEL:
+    CSRF_TRUSTED_ORIGINS.extend(
+        f"https://{host}" for host in ALLOWED_HOSTS if host.endswith(".vercel.app")
+    )
+
+SECURE_SSL_REDIRECT = IS_VERCEL or os.getenv("DJANGO_SECURE_SSL_REDIRECT", "False").lower() in {"1", "true", "yes"}
+if IS_VERCEL:
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 SESSION_COOKIE_SECURE = not DEBUG
 CSRF_COOKIE_SECURE = not DEBUG
 SECURE_CONTENT_TYPE_NOSNIFF = True
@@ -62,7 +96,29 @@ TEMPLATES = [
 ]
 WSGI_APPLICATION = "avon_jeweler.wsgi.application"
 
-if os.getenv("DB_NAME"):
+database_url = os.getenv("DATABASE_URL", "").strip()
+if database_url:
+    parsed_database_url = urlsplit(database_url)
+    if parsed_database_url.scheme not in {"postgres", "postgresql"}:
+        raise ImproperlyConfigured("DATABASE_URL must use the PostgreSQL postgres:// or postgresql:// scheme.")
+    database_options = parse_qs(parsed_database_url.query)
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": unquote(parsed_database_url.path.lstrip("/")),
+            "USER": unquote(parsed_database_url.username or ""),
+            "PASSWORD": unquote(parsed_database_url.password or ""),
+            "HOST": parsed_database_url.hostname or "",
+            "PORT": str(parsed_database_url.port or 5432),
+            "OPTIONS": {
+                key: values[-1]
+                for key, values in database_options.items()
+                if key in {"sslmode", "application_name"}
+            },
+            "CONN_MAX_AGE": 0 if IS_VERCEL else 60,
+        }
+    }
+elif os.getenv("DB_NAME"):
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.mysql",
@@ -72,9 +128,14 @@ if os.getenv("DB_NAME"):
             "HOST": os.getenv("DB_HOST", "127.0.0.1"),
             "PORT": os.getenv("DB_PORT", "3306"),
             "OPTIONS": {"charset": "utf8mb4"},
+            "CONN_MAX_AGE": 0 if IS_VERCEL else 60,
         }
     }
 else:
+    if IS_VERCEL or not DEBUG:
+        raise ImproperlyConfigured(
+            "Configure DATABASE_URL (PostgreSQL) or DB_NAME and MySQL credentials before deploying."
+        )
     DATABASES = {"default": {"ENGINE": "django.db.backends.sqlite3", "NAME": BASE_DIR / "db.sqlite3"}}
 
 AUTH_PASSWORD_VALIDATORS = [

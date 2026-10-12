@@ -44,7 +44,7 @@ GRANT ALL PRIVILEGES ON avon_jeweler.* TO 'avon_app'@'localhost';
 FLUSH PRIVILEGES;
 ```
 
-Set `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST`, and `DB_PORT` in `.env` to match the database and account. The included PyMySQL adapter avoids a separate native MySQL client build on Windows. If `DB_NAME` is not set, the project uses local SQLite to make the smoke test and automated suite easy to run; set it for MySQL-backed development/production.
+Set `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST`, and `DB_PORT` in `.env` to match the database and account. The included PyMySQL adapter avoids a separate native MySQL client build on Windows. Alternatively, set `DATABASE_URL` to a PostgreSQL connection URL. If no database is configured, the project uses local SQLite only for local development and automated tests.
 
 ### Migrate, seed, and start
 
@@ -86,6 +86,19 @@ The checkout creates an order and reserves inventory before redirecting to Razor
 ## Tax settings
 
 In Django admin, open **Store settings** to edit the default tax percentage applied to products without a product-specific tax override. A product can optionally set its own tax rate in the product's Metal & pricing section.
+
+## Vercel deployment
+
+Import the private GitHub repository into Vercel. In Project Settings, enable access to System Environment Variables. Configure `DJANGO_SECRET_KEY` as a new secret and configure either `DATABASE_URL` for hosted PostgreSQL or all `DB_*` variables for hosted MySQL in the Vercel project settings. Vercel deployments force `DEBUG=False`, use their deployment hostnames (including `jeweler-web-site.vercel.app`), enable HTTPS proxy handling, and reject SQLite because serverless local storage is not persistent. `VERCEL_URL` and project deployment hosts are automatically trusted when system environment variables are enabled.
+
+After adding database credentials, run migrations against the Vercel database from a trusted local shell with the Vercel CLI linked to this project:
+
+```powershell
+vercel env run -- python manage.py migrate
+vercel env run -- python manage.py seed_products
+```
+
+Add the deployed URL to `DJANGO_CSRF_TRUSTED_ORIGINS` only if using a custom domain or if the Vercel system host variables are unavailable. Do not put database URLs or secret keys in GitHub.
 
 ### Production security and email
 
