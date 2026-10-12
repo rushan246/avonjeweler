@@ -1,0 +1,26 @@
+AVON JEWELER — New order placed
+
+Order: AV{{ order.pk|stringformat:"06d" }}
+Placed: {{ order.created_at }}
+Payment method: {{ order.payment.get_provider_display }}
+Payment status: {{ order.payment.get_status_display }}
+
+Customer: {{ order.user.get_full_name|default:order.user.username }}
+Email: {{ order.user.email }}
+Verified account phone: {{ order.user.customer_profile.phone }}
+Phone: {{ order.address.phone }}
+
+Delivery address:
+{{ order.address.full_name }}
+{{ order.address.line1 }}{% if order.address.line2 %}, {{ order.address.line2 }}{% endif %}
+{{ order.address.city }}, {{ order.address.state }} {{ order.address.postal_code }}
+{{ order.address.country }}
+
+Items:
+{% for item in order.items.all %}{{ item.quantity }} x {{ item.product_name }} ({{ item.sku }}) — ₹{{ item.line_total }}
+{% endfor %}
+Subtotal: ₹{{ order.subtotal }}
+Discount: ₹{{ order.discount }}
+Tax: ₹{{ order.tax }}
+Delivery: ₹{{ order.shipping_fee }}
+Total: ₹{{ order.total }}

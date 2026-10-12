@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% load store_tags %}
+{% block title %}Complete payment | AVON JEWELER{% endblock %}
+{% block content %}
+<section class="auth-page"><div class="auth-card payment-card"><p class="eyebrow">One last step</p><h1>Complete your payment</h1><p class="auth-intro">Order AV{{ order.pk|stringformat:"06d" }} · {{ order.total|inr }}</p>
+  <p class="secure-note">Choose UPI, card, net banking, or wallet in the secure Razorpay window. Your order is confirmed only after Razorpay verifies the captured payment.</p>
+  {% if razorpay_key_id %}<button class="button button-dark button-full" type="button" id="pay-now">Pay {{ order.total|inr }} securely <span>→</span></button>{% else %}<div class="message message-error">Online payment is not configured. Add Razorpay test credentials to the server environment before checking out.</div>{% endif %}
+  <p id="payment-error" class="field-error" role="alert"></p><a class="text-link payment-back" href="{% url 'order_list' %}">Return to your orders</a>
+  {% if razorpay_key_id %}<script src="https://checkout.razorpay.com/v1/checkout.js"></script><script>
+    document.getElementById("pay-now").addEventListener("click", function () {
+      var checkout = new Razorpay({
+        key: "{{ razorpay_key_id|escapejs }}",
+        amount: "{{ payment.amount_paise }}",
+        currency: "{{ payment.currency }}",
+        name: "AVON JEWELER",
+        description: "Order AV{{ order.pk|stringformat:'06d' }}",
+        order_id: "{{ payment.razorpay_order_id|escapejs }}",
+        theme: { color: "#9f7856" },
+        handler: async function (response) {
+          var body = new URLSearchParams({
+            razorpay_payment_id: response.razorpay_payment_id,
+            razorpay_order_id: response.razorpay_order_id,
+            razorpay_signature: response.razorpay_signature
+          });
+          var result = await fetch("{% url 'verify_payment' %}", {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded", "X-CSRFToken": "{{ csrf_token }}" },
+            body: body.toString(),
+            credentials: "same-origin"
+          });
+          var data = await result.json();
+          if (result.ok && data.redirect) {
+            window.location.assign(data.redirect);
+          } else {
+            document.getElementById("payment-error").textContent = data.error || "Payment verification is still pending.";
+          }
+        },
+        modal: { ondismiss: function () { document.getElementById("payment-error").textContent = "Payment window closed. You can try again when ready."; } }
+      });
+      checkout.open();
+    });
+  </script>{% endif %}
+</div></section>
+{% endblock %}

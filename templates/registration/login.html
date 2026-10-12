@@ -1,0 +1,8 @@
+{% extends "base.html" %}
+{% block title %}Sign in | AVON JEWELER{% endblock %}
+{% block content %}
+<section class="auth-page"><div class="auth-card"><p class="eyebrow">Welcome back</p><h1>Sign in to your account</h1><p class="auth-intro">Your saved pieces and order updates are waiting for you.</p>
+  <form method="post" class="stacked-form">{% csrf_token %}{{ form.non_field_errors }}{% for field in form %}<label for="{{ field.id_for_label }}">{{ field.label }}{{ field }}{% for error in field.errors %}<span class="field-error">{{ error }}</span>{% endfor %}</label>{% endfor %}<input type="hidden" name="next" value="{{ next }}"><button class="button button-dark" type="submit">Sign in <span>→</span></button></form>
+  <p class="auth-switch">New to AVON? <a href="{% url 'register' %}">Create an account</a></p>
+</div></section>
+{% endblock %}

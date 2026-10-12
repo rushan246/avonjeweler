@@ -1,0 +1,20 @@
+{% load store_tags %}
+<article class="product-card">
+  <a class="product-image-wrap" href="{% url 'product_detail' product.slug %}">
+    {% with image=product.primary_image %}
+      {% if image and image.image %}<img class="product-image" src="{{ image.image.url }}" alt="{{ image.alt_text|default:product.name }}" loading="lazy">
+      {% elif image and image.image_url %}<img class="product-image" src="{{ image.image_url }}" alt="{{ image.alt_text|default:product.name }}" loading="lazy">
+      {% else %}<div class="image-placeholder"><span>AVON</span>JEWELER</div>{% endif %}
+    {% endwith %}
+    {% if product.is_featured %}<span class="product-tag">Bestseller</span>{% endif %}
+    <form class="quick-wish" method="post" action="{% url 'toggle_wishlist' product.id %}">
+      {% csrf_token %}<input type="hidden" name="next" value="home"><button aria-label="Save {{ product.name }}" type="submit">♡</button>
+    </form>
+  </a>
+  <div class="product-card-info">
+    <a href="{% url 'product_detail' product.slug %}" class="product-name">{{ product.name }}</a>
+    <p class="product-meta">{{ product.metal }} · {{ product.purity }}{% if product.price_type == "weight" %} · {{ product.weight_g }} g{% endif %}</p>
+    {% price_for product as price %}
+    {% if price %}<p class="product-price">{{ price.total|inr }}{% if product.price_type == "weight" %}<span> incl. taxes</span>{% endif %}</p>{% else %}<p class="product-price price-note">Price on request</p>{% endif %}
+  </div>
+</article>

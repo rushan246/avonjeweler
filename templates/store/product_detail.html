@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% load store_tags %}
+{% block title %}{{ product.name }} | AVON JEWELER{% endblock %}
+{% block meta_description %}{{ product.description|truncatechars:150 }} Shop {{ product.name }} from AVON JEWELER.{% endblock %}
+{% block content %}
+<div class="breadcrumbs"><a href="{% url 'home' %}">Home</a><span>/</span><a href="{% url 'home' %}?category={{ product.category.slug }}">{{ product.category.name }}</a><span>/</span><span>{{ product.name }}</span></div>
+<section class="product-detail">
+  <div class="detail-gallery">
+    {% for image in product.images.all %}<div class="detail-image">{% if image.image %}<img src="{{ image.image.url }}" alt="{{ image.alt_text|default:product.name }}">{% elif image.image_url %}<img src="{{ image.image_url }}" alt="{{ image.alt_text|default:product.name }}">{% endif %}</div>{% empty %}<div class="detail-image image-placeholder"><span>AVON</span>JEWELER</div>{% endfor %}
+  </div>
+  <div class="detail-info">
+    <p class="eyebrow">{{ product.category.name }} · {{ product.metal }} {{ product.purity }}</p><h1>{{ product.name }}</h1>
+    {% if price %}<p class="detail-price">{{ price.total|inr }} <span>inclusive of taxes</span></p>{% if product.price_type == "weight" %}<p class="detail-note">Weight {{ product.weight_g }} g · Metal rate and making charge included. Final price is calculated securely at checkout.</p>{% endif %}{% else %}<p class="detail-note">{{ pricing_error }}</p>{% endif %}
+    <div class="detail-divider"></div><p class="detail-description">{{ product.description }}</p>
+    <ul class="product-specs"><li><span>Metal</span><strong>{{ product.metal }}</strong></li><li><span>Purity</span><strong>{{ product.purity }}</strong></li>{% if product.weight_g %}<li><span>Approx. weight</span><strong>{{ product.weight_g }} g</strong></li>{% endif %}<li><span>Availability</span><strong>{% if product.inventory %}Ready to ship{% else %}Currently unavailable{% endif %}</strong></li></ul>
+    {% if product.inventory and price %}
+    <form method="post" class="purchase-form">{% csrf_token %}<label for="quantity">Quantity</label><input id="quantity" type="number" name="quantity" value="1" min="1" max="{{ product.inventory }}"><button class="button button-dark" type="submit">Add to bag <span>→</span></button></form>
+    {% else %}<button class="button button-dark" disabled>Currently unavailable</button>{% endif %}
+    <form method="post" action="{% url 'toggle_wishlist' product.pk %}" class="wishlist-inline">{% csrf_token %}<input type="hidden" name="next" value="detail"><button type="submit">{% if is_wishlisted %}♥ Saved to your wishlist{% else %}♡ Add to your wishlist{% endif %}</button></form>
+    <p class="service-note">♡ Thoughtful packaging &nbsp; · &nbsp; ◇ Insured delivery across India</p>
+  </div>
+</section>
+{% endblock %}

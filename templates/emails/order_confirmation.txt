@@ -1,0 +1,14 @@
+AVON JEWELER
+Jewellery to treasure.
+
+Hello {{ order.user.first_name|default:order.user.username }},
+
+Your payment is confirmed, and we're preparing order AV{{ order.pk|stringformat:"06d" }} with care.
+
+Order total: ₹{{ order.total }}
+Delivery to: {{ order.address.full_name }}, {{ order.address.city }}, {{ order.address.state }} {{ order.address.postal_code }}
+
+You can view your order and delivery updates from your AVON JEWELER account.
+
+With care,
+AVON JEWELER

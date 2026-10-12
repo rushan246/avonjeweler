@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% load store_tags %}
+{% block title %}Checkout | AVON JEWELER{% endblock %}
+{% block content %}
+<section class="page-shell checkout-page"><div class="page-heading"><p class="eyebrow">Almost yours</p><h1>Checkout</h1><p>Safe, simple, and made with care.</p></div>
+{% if price_error %}<div class="message message-error">{{ price_error }}</div>{% endif %}
+{% if not razorpay_configured %}<div class="message message-info">Online payment is unavailable until Razorpay is configured. Cash on delivery is available.</div>{% endif %}
+<div class="checkout-layout"><div class="checkout-main">
+  <section class="checkout-section"><h2><span>01</span> Delivery address</h2>
+    {% if addresses %}<div class="address-list">{% for address in addresses %}<label class="address-option"><input type="radio" name="address_id" form="place-order-form" value="{{ address.pk }}" {% if forloop.first %}checked{% endif %}><span><strong>{{ address.full_name }}</strong><span>{{ address.line1 }}{% if address.line2 %}, {{ address.line2 }}{% endif %}<br>{{ address.city }}, {{ address.state }} {{ address.postal_code }}<br>{{ address.phone }}</span></span></label>{% endfor %}</div>{% endif %}
+    <details class="address-add"><summary>{% if addresses %}+ Add a new address{% else %}+ Add your delivery address{% endif %}</summary><form method="post" class="address-form">{% csrf_token %}<input type="hidden" name="save_address" value="1">{% for field in address_form %}<label>{{ field.label }}{{ field }}{% for error in field.errors %}<span class="field-error">{{ error }}</span>{% endfor %}</label>{% endfor %}<button class="button button-outline" type="submit">Save address</button></form></details>
+  </section>
+  <section class="checkout-section"><h2><span>02</span> Payment</h2>
+    <div class="payment-options">
+      <label><input type="radio" name="payment_method" form="place-order-form" value="razorpay" {% if razorpay_configured %}checked{% else %}disabled{% endif %}> <span><strong>Pay online</strong><small>UPI, cards, net banking, or wallets through Razorpay{% if not razorpay_configured %} (currently unavailable){% endif %}</small></span></label>
+      <label><input type="radio" name="payment_method" form="place-order-form" value="cod" {% if not razorpay_configured %}checked{% endif %}> <span><strong>Cash on delivery</strong><small>Pay when your order is delivered.</small></span></label>
+    </div>
+  </section>
+</div>
+<aside class="order-summary checkout-summary"><h2>Your order</h2>{% for entry in items %}<div class="summary-product"><span>{{ entry.item.quantity }} × {{ entry.item.product.name }}</span>{% if entry.pricing %}<strong>{{ entry.pricing.total|inr }}</strong>{% endif %}</div>{% endfor %}
+  {% if coupon %}<div class="coupon-applied"><span>Code {{ coupon.code }} applied</span><form method="post">{% csrf_token %}<button type="submit" name="remove_coupon">Remove</button></form></div>{% else %}<form method="post" class="coupon-form">{% csrf_token %}<label for="coupon-code">Gift or discount code</label><div><input id="coupon-code" name="coupon_code" placeholder="Enter code"><button type="submit" name="apply_coupon">Apply</button></div></form>{% endif %}
+  {% if totals %}<div class="summary-row"><span>Subtotal</span><span>{{ totals.subtotal|inr }}</span></div>{% if totals.discount %}<div class="summary-row"><span>Discount</span><span>−{{ totals.discount|inr }}</span></div>{% endif %}<div class="summary-row"><span>Taxes</span><span>{{ totals.tax|inr }}</span></div><div class="summary-row"><span>Delivery</span><span>{% if totals.shipping_fee %}{{ totals.shipping_fee|inr }}{% else %}Complimentary{% endif %}</span></div><div class="summary-row summary-total"><span>Total</span><strong>{{ totals.total|inr }}</strong></div>{% endif %}
+  {% if not phone_verified %}<p class="message message-info">Verify your phone number in your <a href="{% url 'profile' %}">account profile</a> before placing your order.</p>{% endif %}
+  <form method="post" id="place-order-form">{% csrf_token %}<button class="button button-dark button-full" type="submit" name="place_order" {% if not addresses or not totals or not phone_verified %}disabled{% endif %}>Place order <span>→</span></button></form><p class="secure-note">◇ Choose cash on delivery or pay securely online.</p>
+</aside></div></section>
+{% endblock %}

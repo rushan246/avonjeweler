@@ -1,0 +1,6 @@
+Django>=5.2,<5.3
+PyMySQL>=1.1,<2
+Pillow>=11,<13
+razorpay>=1.4,<2
+python-dotenv>=1.0,<2
+setuptools>=70,<81

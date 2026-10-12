@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% load store_tags %}
+{% block title %}Fine Jewellery, Made to Treasure | AVON JEWELER{% endblock %}
+{% block content %}
+<section class="hero">
+  <div class="hero-image" role="img" aria-label="Gold jewellery arranged in warm evening light"></div>
+  <div class="hero-copy"><p class="eyebrow">A little something, forever</p><h1>For the moments<br>that become <em>yours.</em></h1><p>Fine jewellery, thoughtfully made to hold the feeling of every occasion.</p><a class="button button-light" href="#shop">Discover the collection <span>→</span></a></div>
+  <span class="hero-caption">THE EVERYDAY HEIRLOOMS · EST. WITH LOVE</span>
+</section>
+<section class="story-strip"><span class="story-rule"></span><p>Made with meaning. Worn with feeling.</p><span class="story-rule"></span></section>
+<section class="collection-section" id="shop">
+  <div class="section-heading"><div><p class="eyebrow">A collection to call your own</p><h2>Find your forever piece</h2></div><span class="results-count">{{ products|length }} pieces</span></div>
+  <form method="get" action="{% url 'home' %}" class="filter-bar">
+    <label class="search-field"><span class="sr-only">Search jewellery</span><input name="q" type="search" placeholder="Search jewellery…" value="{{ query }}"><button aria-label="Search" type="submit">⌕</button></label>
+    <label><span class="sr-only">Category</span><select name="category" onchange="this.form.submit()"><option value="">All collections</option>{% for category in categories %}<option value="{{ category.slug }}" {% if selected_category == category.slug %}selected{% endif %}>{{ category.name }}</option>{% endfor %}</select></label>
+    <label><span class="sr-only">Metal</span><select name="metal" onchange="this.form.submit()"><option value="">All metals</option>{% for item in metals %}<option value="{{ item }}" {% if selected_metal == item %}selected{% endif %}>{{ item }}</option>{% endfor %}</select></label>
+    <label><span class="sr-only">Sort by</span><select name="sort" onchange="this.form.submit()"><option value="">Featured</option><option value="price-low" {% if sort == "price-low" %}selected{% endif %}>Price: low to high</option><option value="price-high" {% if sort == "price-high" %}selected{% endif %}>Price: high to low</option></select></label>
+  </form>
+  {% if products %}<div class="product-grid">{% for product in products %}{% include "store/product_card.html" with product=product %}{% endfor %}</div>
+  {% else %}<div class="empty-state"><span class="empty-mark">✧</span><h3>No pieces found just yet</h3><p>Try another search or explore our full collection.</p><a class="text-link" href="{% url 'home' %}">View all jewellery →</a></div>{% endif %}
+</section>
+<section class="promise-band"><div class="promise-item"><span>✦</span><div><h3>Made to keep</h3><p>Considered craftsmanship, down to the last detail.</p></div></div><div class="promise-item"><span>◇</span><div><h3>A little more personal</h3><p>Pieces selected to celebrate your story.</p></div></div><div class="promise-item"><span>↗</span><div><h3>With you, all the way</h3><p>Insured delivery and care after the purchase.</p></div></div></section>
+<section class="newsletter"><p class="eyebrow">A note from AVON</p><h2>Beautiful things, now and then.</h2><p>New arrivals, thoughtful stories, and little moments of inspiration.</p><a class="button button-outline" href="mailto:care@avonjeweler.example?subject=AVON%20JEWELER%20updates">Stay in touch</a></section>
+{% endblock %}

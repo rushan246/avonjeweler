@@ -1,0 +1,52 @@
+{% load static %}
+<!doctype html>
+<html lang="en-IN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f8f5ef">
+  <meta name="description" content="{% block meta_description %}Thoughtfully crafted fine jewellery, made to become part of your story. Discover AVON JEWELER.{% endblock %}">
+  <title>{% block title %}AVON JEWELER | Jewellery to treasure{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{% static 'store/css/site.css' %}">
+  {% block extra_head %}{% endblock %}
+</head>
+<body>
+  <div class="announcement">Complimentary insured delivery on orders over ₹5,000 <span aria-hidden="true">✦</span> Thoughtfully made, forever treasured</div>
+  <header class="site-header">
+    <button class="menu-toggle" type="button" aria-label="Open navigation" aria-expanded="false" data-menu-toggle><span></span><span></span></button>
+    <a class="wordmark" href="{% url 'home' %}" aria-label="AVON JEWELER home"><span class="wordmark-main">AVON</span><span class="wordmark-sub">JEWELER</span></a>
+    <nav class="main-nav" data-navigation aria-label="Main navigation">
+      <a href="{% url 'home' %}#shop">Shop all</a>
+      <a href="{% url 'home' %}?category=necklaces">Necklaces</a>
+      <a href="{% url 'home' %}?category=earrings">Earrings</a>
+      <a href="{% url 'home' %}?category=rings">Rings</a>
+      <a href="{% url 'home' %}?category=bracelets">Bracelets</a>
+    </nav>
+    <div class="header-actions">
+      <a class="icon-link account-link" href="{% if user.is_authenticated %}{% url 'profile' %}{% else %}{% url 'login' %}{% endif %}" aria-label="Account"><span class="icon-user"></span><span class="action-label">{% if user.is_authenticated %}Account{% else %}Sign in{% endif %}</span></a>
+      <a class="icon-link" href="{% url 'wishlist' %}" aria-label="Wishlist"><span class="icon-heart">♡</span><span class="action-label">Saved</span></a>
+      <a class="icon-link bag-link" href="{% url 'cart' %}" aria-label="Shopping bag"><span class="icon-bag"></span><span class="action-label">Bag</span>{% if cart_count %}<span class="bag-count">{{ cart_count }}</span>{% endif %}</a>
+    </div>
+  </header>
+  {% if messages %}
+  <div class="messages" aria-live="polite">
+    {% for message in messages %}<div class="message message-{{ message.tags }}">{{ message }}</div>{% endfor %}
+  </div>
+  {% endif %}
+  <main>{% block content %}{% endblock %}</main>
+  <footer class="site-footer">
+    <div class="footer-main">
+      <div class="footer-brand"><a class="wordmark wordmark-footer" href="{% url 'home' %}"><span class="wordmark-main">AVON</span><span class="wordmark-sub">JEWELER</span></a><p>Jewellery to treasure.<br>Made for the moments that matter.</p></div>
+      <div><h3>Discover</h3><a href="{% url 'home' %}#shop">Shop all</a><a href="{% url 'home' %}?category=necklaces">Necklaces</a><a href="{% url 'home' %}?category=earrings">Earrings</a></div>
+      <div><h3>Your account</h3><a href="{% url 'profile' %}">My account</a><a href="{% url 'order_list' %}">Orders & tracking</a><a href="{% url 'wishlist' %}">Wishlist</a></div>
+      <div><h3>Here to help</h3><p>Questions about your order?</p><a href="mailto:care@avonjeweler.example">care@avonjeweler.example</a><span>Mon–Sat, 10am–6pm IST</span></div>
+    </div>
+    <div class="footer-bottom"><span>© {% now "Y" %} AVON JEWELER. Crafted with care.</span><span>Secure payments · Insured delivery · Made in India</span></div>
+  </footer>
+  <script src="{% static 'store/js/site.js' %}" defer></script>
+  {% block extra_js %}{% endblock %}
+</body>
+</html>
