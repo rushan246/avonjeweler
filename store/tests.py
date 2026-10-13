@@ -103,6 +103,10 @@ class StorefrontTests(StoreBaseTest):
         response = self.client.get(reverse("product_detail", kwargs={"slug": self.product.slug}))
         self.assertContains(response, "22K")
 
+    def test_vercel_storefront_host_is_allowed(self):
+        response = self.client.get(reverse("home"), HTTP_HOST="jeweler-web-site.vercel.app")
+        self.assertEqual(response.status_code, 200)
+
     def test_registration_and_authenticated_cart(self):
         response = self.client.post(
             reverse("register"),
