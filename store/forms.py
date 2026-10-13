@@ -21,6 +21,12 @@ class RegistrationForm(UserCreationForm):
 
 
 class AddressForm(forms.ModelForm):
+    phone = forms.RegexField(
+        regex=r"^(?:\+[1-9]\d{7,14}|[1-9]\d{9,14})$",
+        max_length=20,
+        error_messages={"invalid": "Enter a phone number in international format, such as +919876543210 or 9876543210."},
+    )
+
     class Meta:
         model = Address
         fields = ("full_name", "phone", "line1", "line2", "city", "state", "postal_code", "country")

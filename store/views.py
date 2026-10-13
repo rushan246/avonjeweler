@@ -45,10 +45,14 @@ def home(request):
         products = products.filter(category__slug=category_slug)
     if metal:
         products = products.filter(metal__iexact=metal)
-    if sort == "price-low":
-        products = products.order_by("fixed_price", "name")
-    elif sort == "price-high":
-        products = products.order_by("-fixed_price", "name")
+    if sort in {"price-low", "price-high"}:
+        def sort_key(product):
+            try:
+                return product_price(product)["total"]
+            except ValidationError:
+                return Decimal("0.00")
+
+        products = sorted(products, key=sort_key, reverse=(sort == "price-high"))
     context = {
         "products": products,
         "categories": Category.objects.filter(is_active=True),

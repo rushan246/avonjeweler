@@ -11,6 +11,7 @@ from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
+from .forms import AddressForm
 from .models import Address, Cart, CartItem, Category, CustomerProfile, MetalRate, Order, Payment, Product, ProductImage, StoreSettings, Wishlist
 from .pricing import cart_totals, product_price
 
@@ -81,6 +82,18 @@ class PricingTests(StoreBaseTest):
         self.assertEqual(result["tax"], Decimal("60.00"))
         self.assertEqual(result["total"], Decimal("2159.00"))
 
+    def test_catalog_sort_uses_current_total_price_for_weight_products(self):
+        fixed_product = Product.objects.create(
+            name="Halo Drop", slug="halo-drop", sku="AV-TEST-002", category=self.category, description="A fixed-price ring.", metal="Gold", purity="22K", fixed_price=Decimal("500.00"), tax_rate=Decimal("3.00"), inventory=5, is_active=True
+        )
+        weight_product = Product.objects.create(
+            name="Orbit Link", slug="orbit-link", sku="AV-TEST-003", category=self.category, description="A weight-based necklace.", metal="Gold", purity="22K", price_type=Product.PriceType.WEIGHT, weight_g=Decimal("2.500"), making_charge=Decimal("125.00"), tax_rate=Decimal("3.00"), inventory=5, is_active=True
+        )
+        MetalRate.objects.create(metal="Gold", purity="22K", price_per_gram=Decimal("6000.00"), effective_at=timezone.now())
+        response = self.client.get(reverse("home"), {"sort": "price-low"})
+        product_names = [product.name for product in response.context["products"][:3]]
+        self.assertLess(product_names.index("Halo Drop"), product_names.index("Orbit Link"))
+
 
 class StorefrontTests(StoreBaseTest):
     def test_catalog_search_and_detail_render(self):
@@ -117,6 +130,33 @@ class StorefrontTests(StoreBaseTest):
             checkout_response = self.client.get(reverse("checkout"))
         self.assertContains(checkout_response, "Cash on delivery")
         self.assertContains(checkout_response, "Online payment is unavailable")
+
+    def test_address_form_accepts_local_and_international_phone_numbers(self):
+        valid_local = AddressForm(
+            data={
+                "full_name": "A Customer",
+                "phone": "9876543210",
+                "line1": "1 Market Road",
+                "city": "Mumbai",
+                "state": "Maharashtra",
+                "postal_code": "400001",
+                "country": "India",
+            }
+        )
+        self.assertTrue(valid_local.is_valid())
+
+        invalid_phone = AddressForm(
+            data={
+                "full_name": "A Customer",
+                "phone": "invalid-phone",
+                "line1": "1 Market Road",
+                "city": "Mumbai",
+                "state": "Maharashtra",
+                "postal_code": "400001",
+                "country": "India",
+            }
+        )
+        self.assertFalse(invalid_phone.is_valid())
 
     @patch("store.views.send_verification")
     @patch("store.views.check_verification", return_value=True)
