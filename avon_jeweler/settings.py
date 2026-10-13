@@ -36,6 +36,8 @@ DEPLOYMENT_HOSTS = ("jeweler-web-site.vercel.app",)
 for host in DEPLOYMENT_HOSTS:
     if host not in ALLOWED_HOSTS:
         ALLOWED_HOSTS.append(host)
+if ".vercel.app" not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append(".vercel.app")
 if IS_VERCEL:
     for deployment_host in (
         os.getenv("VERCEL_URL", ""),
@@ -52,6 +54,7 @@ CSRF_TRUSTED_ORIGINS = [
     if origin.strip()
 ]
 CSRF_TRUSTED_ORIGINS.extend(f"https://{host}" for host in DEPLOYMENT_HOSTS)
+CSRF_TRUSTED_ORIGINS.append("https://*.vercel.app")
 if IS_VERCEL:
     CSRF_TRUSTED_ORIGINS.extend(
         f"https://{host}" for host in ALLOWED_HOSTS if host.endswith(".vercel.app")
