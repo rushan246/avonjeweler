@@ -225,10 +225,6 @@ def checkout(request):
         request.session.pop("coupon_code", None)
         return redirect("checkout")
     if request.method == "POST" and "place_order" in request.POST:
-        profile, _ = CustomerProfile.objects.get_or_create(user=request.user)
-        if not profile.phone_verified:
-            messages.error(request, "Verify your phone number in your account before placing an order.")
-            return redirect("profile")
         address = Address.objects.filter(user=request.user, pk=request.POST.get("address_id")).first()
         payment_method = request.POST.get("payment_method", "razorpay")
         if not address:
