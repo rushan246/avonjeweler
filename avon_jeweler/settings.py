@@ -61,6 +61,9 @@ if IS_VERCEL:
     for host in VERCEL_DEPLOYMENT_HOSTS:
         if host and host not in ALLOWED_HOSTS:
             ALLOWED_HOSTS.append(host)
+    # Accept any Vercel subdomain (production + preview deployments)
+    if "*.vercel.app" not in ALLOWED_HOSTS:
+        ALLOWED_HOSTS.append("*.vercel.app")
 
 CSRF_TRUSTED_ORIGINS = [
     origin.strip().rstrip("/")
@@ -73,6 +76,8 @@ if IS_VERCEL:
     vercel_url = os.getenv("VERCEL_URL", "").strip()
     if vercel_url and f"https://{vercel_url}" not in CSRF_TRUSTED_ORIGINS:
         CSRF_TRUSTED_ORIGINS.append(f"https://{vercel_url}")
+    if "https://*.vercel.app" not in CSRF_TRUSTED_ORIGINS:
+        CSRF_TRUSTED_ORIGINS.append("https://*.vercel.app")
 
 SECURE_SSL_REDIRECT = IS_VERCEL or os.getenv("DJANGO_SECURE_SSL_REDIRECT", "False").lower() in {"1", "true", "yes"}
 SECURE_HSTS_SECONDS = int(os.getenv("DJANGO_SECURE_HSTS_SECONDS", "31536000" if IS_VERCEL else "0"))
