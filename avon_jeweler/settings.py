@@ -10,7 +10,10 @@ load_dotenv(BASE_DIR / ".env")
 
 IS_VERCEL = (
     os.getenv("VERCEL", "").lower() in {"1", "true", "yes"}
-    or any(os.getenv(name, "").strip() for name in ("VERCEL_URL", "VERCEL_ENV", "VERCEL_PROJECT_PRODUCTION_URL"))
+    or any(
+        os.getenv(name, "").strip()
+        for name in ("VERCEL_URL", "VERCEL_BRANCH_URL", "VERCEL_ENV", "VERCEL_PROJECT_PRODUCTION_URL")
+    )
 )
 DEBUG = not IS_VERCEL and os.getenv("DJANGO_DEBUG", "False").lower() in {"1", "true", "yes"}
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "")
@@ -23,8 +26,19 @@ if not DEBUG and SECRET_KEY == "replace-with-a-long-random-secret":
 
 
 def _host_from_environment(value):
-    host = urlsplit(f"//{value.strip()}").hostname
+    value = value.strip()
+    parsed = urlsplit(value if "://" in value else f"//{value}")
+    host = parsed.hostname
     return host.lower() if host else ""
+
+
+def _vercel_deployment_hosts(environ):
+    hosts = []
+    for name in ("VERCEL_URL", "VERCEL_BRANCH_URL", "VERCEL_PROJECT_PRODUCTION_URL"):
+        host = _host_from_environment(environ.get(name, ""))
+        if host and host not in hosts:
+            hosts.append(host)
+    return hosts
 
 
 ALLOWED_HOSTS = [
@@ -36,15 +50,10 @@ DEPLOYMENT_HOSTS = ("jeweler-web-site.vercel.app",)
 for host in DEPLOYMENT_HOSTS:
     if host not in ALLOWED_HOSTS:
         ALLOWED_HOSTS.append(host)
-if ".vercel.app" not in ALLOWED_HOSTS:
-    ALLOWED_HOSTS.append(".vercel.app")
+VERCEL_DEPLOYMENT_HOSTS = []
 if IS_VERCEL:
-    for deployment_host in (
-        os.getenv("VERCEL_URL", ""),
-        os.getenv("VERCEL_BRANCH_URL", ""),
-        os.getenv("VERCEL_PROJECT_PRODUCTION_URL", ""),
-    ):
-        host = _host_from_environment(deployment_host)
+    VERCEL_DEPLOYMENT_HOSTS = _vercel_deployment_hosts(os.environ)
+    for host in VERCEL_DEPLOYMENT_HOSTS:
         if host and host not in ALLOWED_HOSTS:
             ALLOWED_HOSTS.append(host)
 
@@ -54,13 +63,10 @@ CSRF_TRUSTED_ORIGINS = [
     if origin.strip()
 ]
 CSRF_TRUSTED_ORIGINS.extend(f"https://{host}" for host in DEPLOYMENT_HOSTS)
-CSRF_TRUSTED_ORIGINS.append("https://*.vercel.app")
-if IS_VERCEL:
-    CSRF_TRUSTED_ORIGINS.extend(
-        f"https://{host}" for host in ALLOWED_HOSTS if host.endswith(".vercel.app")
-    )
+CSRF_TRUSTED_ORIGINS.extend(f"https://{host}" for host in VERCEL_DEPLOYMENT_HOSTS)
 
 SECURE_SSL_REDIRECT = IS_VERCEL or os.getenv("DJANGO_SECURE_SSL_REDIRECT", "False").lower() in {"1", "true", "yes"}
+SECURE_HSTS_SECONDS = int(os.getenv("DJANGO_SECURE_HSTS_SECONDS", "31536000" if IS_VERCEL else "0"))
 if IS_VERCEL:
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 SESSION_COOKIE_SECURE = not DEBUG
@@ -158,10 +164,10 @@ LANGUAGE_CODE = "en-in"
 TIME_ZONE = "Asia/Kolkata"
 USE_I18N = True
 USE_TZ = True
-STATIC_URL = "static/"
+STATIC_URL = "/static/"
 STATICFILES_DIRS = [BASE_DIR / "static"]
 STATIC_ROOT = BASE_DIR / "staticfiles"
-MEDIA_URL = "media/"
+MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 LOGIN_URL = "login"

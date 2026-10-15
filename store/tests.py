@@ -4,9 +4,12 @@ import json
 from decimal import Decimal
 from unittest.mock import Mock, patch
 
+from avon_jeweler.settings import _vercel_deployment_hosts
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.core import mail
+from django.core.exceptions import DisallowedHost
+from django.http import HttpRequest
 from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
@@ -103,13 +106,56 @@ class StorefrontTests(StoreBaseTest):
         response = self.client.get(reverse("product_detail", kwargs={"slug": self.product.slug}))
         self.assertContains(response, "22K")
 
+    def test_catalog_category_and_metal_filters(self):
+        necklaces = Category.objects.create(name="Necklaces", slug="necklaces")
+        Product.objects.create(
+            name="Silver Pendant",
+            slug="silver-pendant",
+            sku="AV-TEST-004",
+            category=necklaces,
+            description="A silver pendant.",
+            metal="Silver",
+            purity="925",
+            fixed_price=Decimal("500.00"),
+            inventory=3,
+        )
+        response = self.client.get(reverse("home"), {"category": "necklaces", "metal": "Silver"})
+        products = list(response.context["products"])
+        self.assertEqual([product.name for product in products], ["Silver Pendant"])
+
+    def test_product_detail_uses_root_relative_static_and_media_urls(self):
+        ProductImage.objects.create(product=self.product, image="products/test.jpg", alt_text="Sol Ring")
+        response = self.client.get(reverse("product_detail", kwargs={"slug": self.product.slug}))
+        self.assertContains(response, 'href="/static/store/css/site.css"')
+        self.assertContains(response, 'src="/static/store/js/site.js"')
+        self.assertContains(response, 'src="/media/products/test.jpg"')
+
     def test_vercel_storefront_host_is_allowed(self):
         response = self.client.get(reverse("home"), HTTP_HOST="jeweler-web-site.vercel.app")
         self.assertEqual(response.status_code, 200)
 
     def test_vercel_preview_hosts_are_allowed(self):
-        response = self.client.get(reverse("home"), HTTP_HOST="avon-preview-123.vercel.app")
+        deployment_hosts = _vercel_deployment_hosts(
+            {
+                "VERCEL_URL": "avon-preview-123.vercel.app",
+                "VERCEL_BRANCH_URL": "https://avon-branch.vercel.app/",
+                "VERCEL_PROJECT_PRODUCTION_URL": "jeweler-web-site.vercel.app",
+            }
+        )
+        self.assertEqual(
+            deployment_hosts,
+            ["avon-preview-123.vercel.app", "avon-branch.vercel.app", "jeweler-web-site.vercel.app"],
+        )
+        with override_settings(ALLOWED_HOSTS=[*settings.ALLOWED_HOSTS, *deployment_hosts]):
+            response = self.client.get(reverse("home"), HTTP_HOST="avon-preview-123.vercel.app")
         self.assertEqual(response.status_code, 200)
+
+    def test_unconfigured_vercel_hosts_are_not_trusted(self):
+        self.assertNotIn(".vercel.app", settings.ALLOWED_HOSTS)
+        request = HttpRequest()
+        request.META["HTTP_HOST"] = "unrelated-project.vercel.app"
+        with self.assertRaises(DisallowedHost):
+            request.get_host()
 
     def test_registration_and_authenticated_cart(self):
         response = self.client.post(
@@ -126,6 +172,50 @@ class StorefrontTests(StoreBaseTest):
         self.assertEqual(response.status_code, 302)
         self.assertTrue(User.objects.filter(username="newcustomer").exists())
         self.assertEqual(self.client.get(reverse("cart")).status_code, 200)
+
+    def test_login_rejects_invalid_credentials_and_logout_clears_session(self):
+        password = "A-secure-test-password-482!"
+        self.user.set_password(password)
+        self.user.save(update_fields=["password"])
+
+        response = self.client.post(reverse("login"), {"username": self.user.username, "password": "incorrect"})
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.wsgi_request.user.is_authenticated)
+
+        response = self.client.post(reverse("login"), {"username": self.user.username, "password": password})
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(response.wsgi_request.user.is_authenticated)
+
+        response = self.client.post(reverse("logout"))
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(response.wsgi_request.user.is_authenticated)
+
+    def test_cart_persists_updates_and_removals_are_customer_scoped(self):
+        self.client.force_login(self.user)
+        response = self.client.post(
+            reverse("product_detail", kwargs={"slug": self.product.slug}),
+            {"quantity": "2"},
+        )
+        self.assertEqual(response.status_code, 302)
+        cart = Cart.objects.get(user=self.user)
+        item = cart.items.get(product=self.product)
+        self.assertEqual(item.quantity, 2)
+        self.assertEqual(self.client.get(reverse("cart")).context["items"][0].quantity, 2)
+
+        response = self.client.post(reverse("update_cart_item", args=[item.pk]), {"quantity": "3"})
+        self.assertEqual(response.status_code, 302)
+        item.refresh_from_db()
+        self.assertEqual(item.quantity, 3)
+
+        other_customer = User.objects.create_user(username="other-customer", password="a-secure-password")
+        self.client.force_login(other_customer)
+        response = self.client.post(reverse("update_cart_item", args=[item.pk]), {"quantity": "1"})
+        self.assertEqual(response.status_code, 404)
+
+        self.client.force_login(self.user)
+        response = self.client.post(reverse("update_cart_item", args=[item.pk]), {"quantity": "0"})
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(cart.items.exists())
 
     def test_account_and_checkout_pages_render_profile_and_cod_controls(self):
         self.client.force_login(self.user)
@@ -244,6 +334,12 @@ class AdminWorkflowTests(TestCase):
         self.staff = User.objects.create_superuser(username="catalog-admin", email="admin@example.com", password="AdminSecurePass123!")
         self.category = Category.objects.create(name="Necklaces", slug="necklaces")
         self.client.force_login(self.staff)
+
+    def test_customer_cannot_access_store_administration(self):
+        customer = User.objects.create_user(username="store-customer", password="a-secure-password")
+        self.client.force_login(customer)
+        response = self.client.get(reverse("admin:store_product_changelist"))
+        self.assertEqual(response.status_code, 302)
 
     def test_staff_can_update_store_tax_setting(self):
         StoreSettings.get_default()
