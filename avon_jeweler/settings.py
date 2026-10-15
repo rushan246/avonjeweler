@@ -46,7 +46,12 @@ ALLOWED_HOSTS = [
     for host in os.getenv("DJANGO_ALLOWED_HOSTS", "127.0.0.1,localhost").split(",")
     if _host_from_environment(host)
 ]
-DEPLOYMENT_HOSTS = ("jeweler-web-site.vercel.app",)
+DEPLOYMENT_HOST_ENV = os.getenv("DJANGO_DEPLOYMENT_HOSTS", "").strip()
+DEPLOYMENT_HOSTS = [
+    _host_from_environment(host)
+    for host in DEPLOYMENT_HOST_ENV.split(",")
+    if _host_from_environment(host)
+]
 for host in DEPLOYMENT_HOSTS:
     if host not in ALLOWED_HOSTS:
         ALLOWED_HOSTS.append(host)
@@ -64,6 +69,10 @@ CSRF_TRUSTED_ORIGINS = [
 ]
 CSRF_TRUSTED_ORIGINS.extend(f"https://{host}" for host in DEPLOYMENT_HOSTS)
 CSRF_TRUSTED_ORIGINS.extend(f"https://{host}" for host in VERCEL_DEPLOYMENT_HOSTS)
+if IS_VERCEL:
+    vercel_url = os.getenv("VERCEL_URL", "").strip()
+    if vercel_url and f"https://{vercel_url}" not in CSRF_TRUSTED_ORIGINS:
+        CSRF_TRUSTED_ORIGINS.append(f"https://{vercel_url}")
 
 SECURE_SSL_REDIRECT = IS_VERCEL or os.getenv("DJANGO_SECURE_SSL_REDIRECT", "False").lower() in {"1", "true", "yes"}
 SECURE_HSTS_SECONDS = int(os.getenv("DJANGO_SECURE_HSTS_SECONDS", "31536000" if IS_VERCEL else "0"))
