@@ -131,6 +131,8 @@ class StorefrontTests(StoreBaseTest):
         self.assertContains(response, 'src="/media/products/test.jpg"')
 
     def test_vercel_storefront_host_is_allowed(self):
+        self.assertIn("jeweler-web-site.vercel.app", settings.ALLOWED_HOSTS)
+        self.assertIn("https://jeweler-web-site.vercel.app", settings.CSRF_TRUSTED_ORIGINS)
         response = self.client.get(reverse("home"), HTTP_HOST="jeweler-web-site.vercel.app")
         self.assertEqual(response.status_code, 200)
 

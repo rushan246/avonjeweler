@@ -231,6 +231,9 @@ def checkout(request):
             messages.error(request, "Select a valid delivery address.")
         elif payment_method not in ("razorpay", "cod"):
             messages.error(request, "Select a valid payment method.")
+        elif not CustomerProfile.objects.filter(user=request.user, phone_verified=True).exists():
+            messages.error(request, "Verify your phone number before placing an order.")
+            return redirect("profile")
         elif price_error:
             messages.error(request, price_error)
         elif payment_method == "razorpay" and not (settings.RAZORPAY_KEY_ID and settings.RAZORPAY_KEY_SECRET):

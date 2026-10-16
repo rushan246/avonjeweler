@@ -89,7 +89,7 @@ In Django admin, open **Store settings** to edit the default tax percentage appl
 
 ## Vercel deployment
 
-Import the GitHub repository into Vercel with the repository root as the project root. Vercel detects Django from `manage.py`, uses `avon_jeweler.wsgi.application`, runs `collectstatic`, and serves collected static files through its CDN; a custom `vercel.json` or separate API wrapper is not required. Configure `DJANGO_SECRET_KEY` as a new secret and configure either `DATABASE_URL` for hosted PostgreSQL or all `DB_*` variables for hosted MySQL in the Vercel project settings. Configure production `DJANGO_DEBUG=False` and use a persistent hosted database; serverless local SQLite storage is not persistent. Vercel deployments enforce HTTPS, enable one-year HSTS by default, and trust `VERCEL_URL`, `VERCEL_BRANCH_URL`, and `VERCEL_PROJECT_PRODUCTION_URL` individually when present, along with `jeweler-web-site.vercel.app`. The app does not trust every `*.vercel.app` hostname. Set `DJANGO_ALLOWED_HOSTS` to any additional custom domains and include their HTTPS origins in `DJANGO_CSRF_TRUSTED_ORIGINS`.
+Import the GitHub repository into Vercel with the repository root as the project root. The checked-in `vercel.json` installs `requirements.txt`, runs `collectstatic`, serves `staticfiles`, and routes requests to `avon_jeweler/wsgi.py`. Configure `DJANGO_SECRET_KEY` as a new secret and configure either `DATABASE_URL` for hosted PostgreSQL or all `DB_*` variables for hosted MySQL in the Vercel project settings. Vercel forces `DEBUG=False`; use a persistent hosted database because serverless local SQLite storage is not persistent. The production host `jeweler-web-site.vercel.app` is included in `ALLOWED_HOSTS` and its HTTPS origin is trusted for CSRF. Vercel's exact `VERCEL_URL`, `VERCEL_BRANCH_URL`, and `VERCEL_PROJECT_PRODUCTION_URL` values are additionally allowed and CSRF-trusted when present. The app does not trust every `*.vercel.app` hostname. Set `DJANGO_ALLOWED_HOSTS` for additional custom domains and include their HTTPS origins in `DJANGO_CSRF_TRUSTED_ORIGINS`; use `DJANGO_DEPLOYMENT_HOSTS` for any additional exact deployment hostnames.
 
 After deploying, verify that the production deployment is built from the intended GitHub branch and commit. The public site should return HTTP 200, and its Django runtime must report `DEBUG=False` and include `jeweler-web-site.vercel.app` in `ALLOWED_HOSTS`. A `DisallowedHost` response showing only localhost hosts indicates a stale deployment or incorrect project/root/branch configuration; redeploy the current source and inspect the deployment's runtime environment variables rather than allowing all Vercel subdomains.
 
@@ -100,7 +100,7 @@ vercel env run -- python manage.py migrate
 vercel env run -- python manage.py seed_products
 ```
 
-Add the deployed URL to `DJANGO_CSRF_TRUSTED_ORIGINS` only if using a custom domain or if the Vercel system host variables are unavailable. Do not put database URLs or secret keys in GitHub.
+Add a custom domain's HTTPS origin to `DJANGO_CSRF_TRUSTED_ORIGINS` and its hostname to `DJANGO_ALLOWED_HOSTS`. To redeploy after changing these files, push the commit to the branch connected to Vercel or trigger **Redeploy** for that commit in the Vercel dashboard. Confirm the build uses the repository root and inspect deployment logs if the host error remains; do not broaden hosts to all Vercel domains. Do not put database URLs or secret keys in GitHub.
 
 ### Production security and email
 

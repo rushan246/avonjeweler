@@ -12,12 +12,26 @@ IS_VERCEL = (
     os.getenv("VERCEL", "").lower() in {"1", "true", "yes"}
     or any(
         os.getenv(name, "").strip()
-        for name in ("VERCEL_URL", "VERCEL_BRANCH_URL", "VERCEL_ENV", "VERCEL_PROJECT_PRODUCTION_URL")
+        for name in (
+            "VERCEL_URL",
+            "VERCEL_BRANCH_URL",
+            "VERCEL_ENV",
+            "VERCEL_PROJECT_PRODUCTION_URL",
+            "VERCEL_REGION",
+            "VERCEL_GIT_COMMIT_SHA",
+            "VERCEL_PROJECT_ID",
+            "VERCEL_ORG_ID",
+        )
     )
 )
-DEBUG = not IS_VERCEL and os.getenv("DJANGO_DEBUG", "False").lower() in {"1", "true", "yes"}
+# On Vercel, never run with DEBUG enabled regardless of DJANGO_DEBUG.
+DEBUG = False if IS_VERCEL else os.getenv("DJANGO_DEBUG", "False").lower() in {"1", "true", "yes"}
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "")
 if not SECRET_KEY:
+    if IS_VERCEL:
+        raise ImproperlyConfigured(
+            "Set DJANGO_SECRET_KEY in Vercel project settings before deploying AVON JEWELER."
+        )
     if not DEBUG:
         raise ImproperlyConfigured("Set DJANGO_SECRET_KEY before running AVON JEWELER with DEBUG disabled.")
     SECRET_KEY = "insecure-development-only-key"
@@ -41,11 +55,11 @@ def _vercel_deployment_hosts(environ):
     return hosts
 
 
-ALLOWED_HOSTS = [
-    _host_from_environment(host)
-    for host in os.getenv("DJANGO_ALLOWED_HOSTS", "127.0.0.1,localhost").split(",")
-    if _host_from_environment(host)
-]
+ALLOWED_HOSTS = ["127.0.0.1", "localhost", "jeweler-web-site.vercel.app"]
+for host in os.getenv("DJANGO_ALLOWED_HOSTS", "").split(","):
+    normalized_host = _host_from_environment(host)
+    if normalized_host and normalized_host not in ALLOWED_HOSTS:
+        ALLOWED_HOSTS.append(normalized_host)
 DEPLOYMENT_HOST_ENV = os.getenv("DJANGO_DEPLOYMENT_HOSTS", "").strip()
 DEPLOYMENT_HOSTS = [
     _host_from_environment(host)
@@ -61,24 +75,16 @@ if IS_VERCEL:
     for host in VERCEL_DEPLOYMENT_HOSTS:
         if host and host not in ALLOWED_HOSTS:
             ALLOWED_HOSTS.append(host)
-    # Accept any Vercel subdomain (production + preview deployments)
-    # Django wildcard format: .vercel.app matches all subdomains
-    if ".vercel.app" not in ALLOWED_HOSTS:
-        ALLOWED_HOSTS.append(".vercel.app")
 
-CSRF_TRUSTED_ORIGINS = [
-    origin.strip().rstrip("/")
-    for origin in os.getenv("DJANGO_CSRF_TRUSTED_ORIGINS", "").split(",")
-    if origin.strip()
-]
-CSRF_TRUSTED_ORIGINS.extend(f"https://{host}" for host in DEPLOYMENT_HOSTS)
-CSRF_TRUSTED_ORIGINS.extend(f"https://{host}" for host in VERCEL_DEPLOYMENT_HOSTS)
-if IS_VERCEL:
-    vercel_url = os.getenv("VERCEL_URL", "").strip()
-    if vercel_url and f"https://{vercel_url}" not in CSRF_TRUSTED_ORIGINS:
-        CSRF_TRUSTED_ORIGINS.append(f"https://{vercel_url}")
-    if "https://.vercel.app" not in CSRF_TRUSTED_ORIGINS:
-        CSRF_TRUSTED_ORIGINS.append("https://.vercel.app")
+CSRF_TRUSTED_ORIGINS = ["https://jeweler-web-site.vercel.app"]
+for origin in os.getenv("DJANGO_CSRF_TRUSTED_ORIGINS", "").split(","):
+    normalized_origin = origin.strip().rstrip("/")
+    if normalized_origin and normalized_origin not in CSRF_TRUSTED_ORIGINS:
+        CSRF_TRUSTED_ORIGINS.append(normalized_origin)
+for host in [*DEPLOYMENT_HOSTS, *VERCEL_DEPLOYMENT_HOSTS]:
+    origin = f"https://{host}"
+    if origin not in CSRF_TRUSTED_ORIGINS:
+        CSRF_TRUSTED_ORIGINS.append(origin)
 
 SECURE_SSL_REDIRECT = IS_VERCEL or os.getenv("DJANGO_SECURE_SSL_REDIRECT", "False").lower() in {"1", "true", "yes"}
 SECURE_HSTS_SECONDS = int(os.getenv("DJANGO_SECURE_HSTS_SECONDS", "31536000" if IS_VERCEL else "0"))
